@@ -7,11 +7,14 @@
 
   # TODO: upstream to NixOS/nixpkgs
   nixpkgs.overlays = [(final: previous: {
+    qca6390-bt-firmware = final.callPackage ./qca6390-bt-firmware.nix {};
     qca6390-wifi-firmware = final.callPackage ./qca6390-wifi-firmware.nix {};
   })];
 
   hardware.firmware = lib.mkBefore [
-    # Firmware for the AX500 (wi-fi & bluetooth chip).
+    # Firmware for the AX500 bluetooth.
+    pkgs.qca6390-bt-firmware
+    # Firmware for the AX500 wifi.
     pkgs.qca6390-wifi-firmware
   ];
 
@@ -228,7 +231,22 @@
             name = "w1nk-disable-mhi-m2-transition";
             patch = ./disable-mhi-m2.patch;
           }
+
+          # Extra config required for Bluetooth.
+          {
+            name = "enable-qca6390-bluetooth";
+            patch = null;
+            extraConfig = ''
+              BT_QCA m
+              BT_HCIBTUSB m
+              BT_HCIBTUSB_AUTOSUSPEND y
+              BT_HCIUART m
+              BT_HCIUART_QCA y
+            '';
+          }
         ];
+        # Enable some extra kernel modules for QCA6390 bluetooth.
+        kernelModules = [ "bluetooth" "btqca" "btusb" "hci_qca" "hci_uart" ];
       } // (args.argsOverride or { }));
     linux_patched = pkgs.callPackage linux_patched_pkg { };
   in pkgs.recurseIntoAttrs (pkgs.linuxPackagesFor linux_patched);
